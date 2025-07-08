@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sourcere - AI-Powered Resource Guides</title>
+    <script src="https://js.stripe.com/v3/" data-same-origin=""></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        dark: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        },
+                        surface: {
+                            100: '#1a1a1a',
+                            200: '#222222',
+                            300: '#2a2a2a',
+                            400: '#333333',
+                            500: '#3d3d3d',
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                        'fade-out': 'fadeOut 0.3s ease-in-out',
+                        'slide-in-right': 'slideInRight 0.3s ease-out',
+                        'slide-out-right': 'slideOutRight 0.3s ease-in',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        fadeOut: {
+                            '0%': { opacity: '1' },
+                            '100%': { opacity: '0' },
+                        },
+                        slideInRight: {
+                            '0%': { transform: 'translateX(100%)' },
+                            '100%': { transform: 'translateX(0)' },
+                        },
+                        slideOutRight: {
+                            '0%': { transform: 'translateX(0)' },
+                            '100%': { transform: 'translateX(100%)' },
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        :root {
+            --color-primary: #0ea5e9;
+            --color-primary-dark: #0284c7;
+            --color-surface-100: #1a1a1a;
+            --color-surface-200: #222222;
+            --color-surface-300: #2a2a2a;
+            --color-surface-400: #333333;
+            --color-text-primary: #ffffff;
+            --color-text-secondary: #a0a0a0;
+        }
+        
+        body {
+            @apply bg-surface-100 text-text-primary font-sans antialiased;
+            overscroll-behavior: none;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .smooth-transition {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .btn-primary {
+            @apply bg-primary-600 hover:bg-primary-700 text-white smooth-transition;
+        }
+        
+        .btn-secondary {
+            @apply bg-surface-300 hover:bg-surface-400 text-white smooth-transition;
+        }
+        
+        .modern-input {
+            @apply bg-surface-200 border border-surface-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 rounded-lg smooth-transition;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .message-bubble {
+            @apply rounded-2xl p-4 max-w-[85%];
+        }
+        
+        .user-message {
+            @apply bg-surface-300 rounded-br-none;
+        }
+        
+        .ai-message {
+            @apply bg-surface-200 rounded-bl-none;
+        }
+        
+        .typing-indicator {
+            @apply flex space-x-1 items-center;
+        }
+        
+        .typing-dot {
+            @apply w-2 h-2 bg-surface-400 rounded-full;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+
+        /* New sidebar styles */
+        .sidebar-collapsed {
+            width: 60px;
+        }
+        
+        .sidebar-expanded {
+            width: 280px;
+        }
+        
+        .main-content-collapsed {
+            margin-left: 60px;
+        }
+        
+        .main-content-expanded {
+            margin-left: 280px;
+        }
+
+        /* Overlay styles */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        #overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        /* Account popup styles */
+        .account-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            max-width: 400px;
+            width: 90%;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex relative overflow-hidden">
+    <!-- Overlay -->
+    <div id="overlay" class="hidden"></div>
+
+    <!-- Background elements -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+
+    <!-- Collapsed Sidebar -->
+    <div id="collapsedSidebar" class="fixed top-0 left-0 h-full bg-surface-200 border-r border-surface-400 z-20 flex flex-col sidebar-collapsed">
+        <div class="p-3 flex flex-col items-center space-y-4">
+            <button id="toggleSidebarBtn" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-300 smooth-transition">
+                <img src="img/sidebar.png" class="w-5 h-5" alt="Toggle Sidebar">
+            </button>
+            
+            <button id="newChatBtnCollapsed" class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary-600 hover:bg-primary-700 text-white smooth-transition">
+                <i class="fas fa-plus text-sm"></i>
+            </button>
+        </div>
+        
+        <div class="flex-1"></div>
+        
+        <div class="p-3">
+            <button id="accountBtn" class="flex items-center space-x-2 bg-surface-300 hover:bg-surface-400 p-2 rounded-lg smooth-transition">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-xs font-medium text-white">
+                    <i class="far fa-user"></i>
+                </div>
+            </button>
+        </div>
+    </div>
+
+      <!-- Expanded Side Panel -->
+    <div id="sidePanel" class="fixed top-0 left-0 h-full bg-surface-200 border-r border-surface-400 z-20 flex flex-col sidebar-expanded hidden">
+        <div class="p-4 border-b border-surface-400">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <img src="img/sourcere.png" class="h-6 w-auto" alt="Sourcere Logo">
+        </div>
+        <button id="closeSidePanelBtn" class="text-surface-400 hover:text-white smooth-transition">
+            <img src="img/sidebar.png" class="h-6 w-auto" alt="Close Panel">
+        </button>
+    </div>
+</div>
+
+        <div id="chatList" class="flex-1 py-2 px-2 overflow-y-auto no-scrollbar">
+            <!-- Chat items will be added here dynamically -->
+        </div>
+
+        <div class="p-4 border-t border-surface-400 bg-surface-300">
+            <div class="flex items-center space-x-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-sm font-medium text-white">
+                    <i class="far fa-user"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p id="userEmail" class="text-sm font-medium text-white truncate">Not signed in</p>
+                    <p id="userPlan" class="text-xs text-text-secondary">Free plan</p>
+                </div>
+            </div>
+            <button id="upgradeSidebarBtn" class="w-full btn-secondary py-2 px-3 rounded-lg text-xs font-medium">
+                <i class="fas fa-crown mr-1 text-xs"></i> Upgrade
+            </button>
+        </div>
+    </div>
+
+    <!-- Account Popup (Centered) -->
+    <div id="accountPopup" class="account-popup hidden bg-surface-200 rounded-xl shadow-xl border border-surface-400 overflow-hidden animate-fade-in">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Account</h2>
+                <button id="closeAccountPopupBtn" class="text-2xl text-surface-400 hover:text-white smooth-transition">&times;</button>
+            </div>
+            
+            <div id="accountInfo" class="mb-6 p-4 bg-surface-300 rounded-xl">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-lg font-medium text-white">
+                        <i class="far fa-user"></i>
+                    </div>
+                    <div>
+                        <p id="accountUserEmail" class="text-sm font-medium">Not signed in</p>
+                        <p id="accountUserPlan" class="text-xs text-text-secondary">Free plan</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="signInForm" class="mb-6">
+                <h3 class="text-sm font-medium mb-3">Sign in to your account</h3>
+                <div class="space-y-3">
+                    <input id="signInEmail" type="email" placeholder="Email" class="w-full px-3 py-2 text-sm rounded-lg modern-input">
+                    <input id="signInPassword" type="password" placeholder="Password" class="w-full px-3 py-2 text-sm rounded-lg modern-input">
+                    <button id="signInBtn" class="w-full btn-primary py-2 rounded-lg text-sm font-medium">Sign In</button>
+                    <p class="text-xs text-center text-text-secondary">Don't have an account? <button id="showSignUpBtn" class="text-primary-400 hover:underline">Sign up</button></p>
+                </div>
+                <p id="errorMessage" class="text-xs text-red-400 mt-2 hidden"></p>
+            </div>
+            
+            <div id="signUpForm" class="mb-6 hidden">
+                <h3 class="text-sm font-medium mb-3">Create an account</h3>
+                <div class="space-y-3">
+                    <input id="signUpEmail" type="email" placeholder="Email" class="w-full px-3 py-2 text-sm rounded-lg modern-input">
+                    <input id="signUpPassword" type="password" placeholder="Password (min 6 characters)" class="w-full px-3 py-2 text-sm rounded-lg modern-input">
+                    <button id="signUpBtn" class="w-full btn-primary py-2 rounded-lg text-sm font-medium">Sign Up</button>
+                    <p class="text-xs text-center text-text-secondary">Already have an account? <button id="showSignInBtn" class="text-primary-400 hover:underline">Sign in</button></p>
+                </div>
+                <p id="errorMessageSignUp" class="text-xs text-red-400 mt-2 hidden"></p>
+            </div>
+            
+            <div id="accountActions" class="hidden">
+                <button id="upgradeBtn" class="w-full btn-primary py-2 rounded-lg text-sm font-medium mb-3">
+                    <i class="fas fa-crown mr-2"></i> Upgrade Plan
+                </button>
+                <button id="signOutBtn" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-surface-400 text-text-secondary smooth-transition">
+                    <i class="fas fa-sign-out-alt mr-2"></i> Sign out
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing Modal -->
+    <div id="pricingModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-surface-200 rounded-xl p-6 max-w-2xl w-full border border-surface-400 animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Upgrade Your Plan</h2>
+                <button id="closePricingModalBtn" class="text-2xl text-surface-400 hover:text-white smooth-transition">&times;</button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-5 border border-surface-400 rounded-xl hover:border-primary-500 smooth-transition">
+                    <h3 class="font-medium text-xl mb-3">Free Plan</h3>
+                    <p class="text-sm text-text-secondary mb-4">Great for trying out Sourcere</p>
+                    <ul class="space-y-2 mb-6 text-sm">
+                        <li class="flex items-center"><i class="fas fa-check text-green-400 mr-2"></i> 20 guides per day</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-400 mr-2"></i> Basic resource lists</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-400 mr-2"></i> Save up to 10 guides</li>
+                    </ul>
+                    <p class="text-3xl font-bold mb-4">$0<span class="text-base font-normal text-text-secondary">/month</span></p>
+                    <button class="w-full py-3 px-4 bg-surface-400 rounded-xl hover:bg-surface-500 smooth-transition">
+                        Current Plan
+                    </button>
+                </div>
+                
+                <div class="p-5 border-2 border-primary-500 rounded-xl bg-gradient-to-b from-surface-300 to-surface-400 relative overflow-hidden">
+                    <div class="absolute top-3 right-3 bg-primary-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        POPULAR
+                    </div>
+                    <h3 class="font-medium text-xl mb-3">Pro Plan</h3>
+                    <p class="text-sm text-text-secondary mb-4">For professionals and power users</p>
+                    <ul class="space-y-2 mb-6 text-sm">
+                        <li class="flex items-center"><i class="fas fa-check text-green-400 mr-2"></i> Unlimited guides</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-400 mr-2"></i> Detailed resource lists</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-400 mr-2"></i> Save unlimited guides</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-400 mr-2"></i> Priority support</li>
+                        <li class="flex items-center"><i class="fas fa-check text-green-400 mr-2"></i> PDF exports</li>
+                    </ul>
+                    <p class="text-3xl font-bold mb-4">$9.99<span class="text-base font-normal text-text-secondary">/month</span></p>
+                    <button id="upgradeToProBtn" class="w-full btn-primary py-3 px-4 rounded-xl text-sm font-medium">
+                        Upgrade Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Knowledge Modal -->
+    <div id="knowledgeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-surface-200 rounded-xl p-6 max-w-md w-full border border-surface-400 animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Add Knowledge</h2>
+                <button id="closeKnowledgeModalBtn" class="text-2xl text-surface-400 hover:text-white smooth-transition">&times;</button>
+            </div>
+            
+            <div class="mb-4">
+                <p class="text-sm text-text-secondary mb-3">Add specific knowledge or context to help the AI generate better results.</p>
+                <textarea id="knowledgeText" class="w-full px-3 py-2 text-sm rounded-lg modern-input h-32" placeholder="Enter any specific knowledge, context, or requirements..."></textarea>
+            </div>
+            
+            <button id="saveKnowledgeBtn" class="w-full btn-primary py-2 rounded-lg text-sm font-medium">
+                Save Knowledge
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="mainContent" class="flex-1 flex flex-col h-screen ml-[60px] smooth-transition">
+        <!-- Main Content Area -->
+        <main class="flex-1 container mx-auto px-4 py-4 flex flex-col max-w-3xl w-full overflow-y-auto">
+            <!-- Empty State -->
+            <div id="emptyState" class="flex-1 flex flex-col items-center justify-center text-center py-8">
+                <div class="w-16 h-16 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center mx-auto mb-4 overflow-hidden">
+                    <img src="img/white.png" alt="Logo" class="w-10 h-10 object-contain" />
+                </div>
+                <h2 class="text-lg font-bold mb-1">Generate Your First Resource Guide</h2>
+                <p class="text-text-secondary max-w-md text-sm">Enter any topic below to create a custom resource guide.</p>
+            </div>
+            
+            <div id="resultsSection" class="hidden flex-1 w-full flex-col space-y-4 pb-4">
+                <div id="loadingIndicator" class="hidden flex justify-center py-4">
+                    <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-500"></div>
+                </div>
+                <div id="resultsContainer"></div>
+            </div>
+            
+            <!-- Input Section -->
+            <section class="sticky bottom-0 inset-x-0 pt-4 pb-6 border-t border-surface-400 backdrop-blur-sm bg-surface-100/80">
+                <!-- Buttons above the input container -->
+                <div class="flex justify-end space-x-2 mb-2">
+                    <button id="knowledgeBtn" class="flex items-center justify-center w-8 h-8 rounded-full bg-surface-300 hover:bg-surface-400 text-white smooth-transition text-xs" title="Add Knowledge">
+                        <i class="fas fa-brain"></i>
+                    </button>
+                    <select id="modelSelector" class="h-8 px-2 text-xs rounded-lg bg-surface-300 hover:bg-surface-400 text-white border border-surface-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 smooth-transition">
+                        <option value="openrouter/cypher-alpha:free">Cypher Alpha</option>
+                        <option value="mistralai/mistral-small-3.2-24b-instruct:free">Mistral Small</option>
+                        <option value="moonshotai/kimi-dev-72b:free">Kimi 72B</option>
+                        <option value="deepseek/deepseek-r1-0528-qwen3-8b:free">DeepSeek</option>
+                    </select>
+                </div>
+                
+                <!-- Input container -->
+                <div class="relative rounded-lg border border-surface-400 focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500/20 bg-surface-200 smooth-transition">
+                    <textarea id="topicInput" rows="1" placeholder="Enter any topic (e.g., streetwear, vegan cooking...)" 
+                           class="w-full px-4 py-3 pr-14 bg-transparent rounded-lg focus:outline-none text-sm resize-none max-h-32"></textarea>
+                    <button id="generateBtn" class="absolute right-2 bottom-[45px] flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 smooth-transition">
+                        <i class="fas fa-arrow-up text-xs"></i>
+                    </button>
+                    
+                    <!-- Usage indicator -->
+                    <div id="usageIndicator" class="border-t border-surface-400 p-1.5 rounded-b-lg">
+                        <div class="flex justify-between items-center mb-0.5 px-1">
+                            <span class="text-xs">Daily Usage</span>
+                            <span id="usageCount" class="text-xs font-medium">0/20</span>
+                        </div>
+                        <div class="w-full bg-surface-400 rounded-full h-1.5">
+                            <div id="usageBar" class="bg-primary-500 h-1.5 rounded-full smooth-transition" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <p class="text-xs text-text-secondary mt-2 text-center">Sourcere can make mistakes. Verify important information.</p>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/ui.js"></script>
+    
+    <script>
+        // Initialize the app when DOM is loaded
+        document.addEventListener("DOMContentLoaded", () => {
+            window.app = new SourcereApp();
+            
+            // Toggle sidebar
+            document.getElementById("toggleSidebarBtn").addEventListener("click", function() {
+                const sidePanel = document.getElementById("sidePanel");
+                const collapsedSidebar = document.getElementById("collapsedSidebar");
+                const mainContent = document.getElementById("mainContent");
+                
+                if (sidePanel.classList.contains("hidden")) {
+                    sidePanel.classList.remove("hidden");
+                    collapsedSidebar.classList.add("hidden");
+                    mainContent.classList.remove("main-content-collapsed");
+                    mainContent.classList.add("main-content-expanded");
+                } else {
+                    sidePanel.classList.add("hidden");
+                    collapsedSidebar.classList.remove("hidden");
+                    mainContent.classList.remove("main-content-expanded");
+                    mainContent.classList.add("main-content-collapsed");
+                }
+            });
+
+            // Close side panel when clicking close button
+            document.getElementById("closeSidePanelBtn").addEventListener("click", function() {
+                const sidePanel = document.getElementById("sidePanel");
+                const collapsedSidebar = document.getElementById("collapsedSidebar");
+                const mainContent = document.getElementById("mainContent");
+                
+                sidePanel.classList.add("hidden");
+                collapsedSidebar.classList.remove("hidden");
+                mainContent.classList.remove("main-content-expanded");
+                mainContent.classList.add("main-content-collapsed");
+            });
+
+            // Account button click handlers
+            document.getElementById("accountBtn").addEventListener("click", function() {
+                const popup = document.getElementById("accountPopup");
+                const overlay = document.getElementById("overlay");
+                
+                popup.classList.remove("hidden");
+                overlay.classList.remove("hidden");
+                
+                // Update content based on auth state
+                window.app.uiManager.updateAccountPopup();
+            });
+
+            document.getElementById("closeAccountPopupBtn").addEventListener("click", function() {
+                const popup = document.getElementById("accountPopup");
+                const overlay = document.getElementById("overlay");
+                
+                popup.classList.add("hidden");
+                overlay.classList.add("hidden");
+            });
+
+            // New chat button click handlers
+            document.getElementById("newChatBtnCollapsed").addEventListener("click", function() {
+                window.app.createNewChat();
+            });
+
+            // Close popups when clicking outside
+            document.addEventListener("click", function(event) {
+                const popup = document.getElementById("accountPopup");
+                const overlay = document.getElementById("overlay");
+                const clickedInsidePopup = popup && popup.contains(event.target);
+                const clickedAccountBtn = event.target.closest("#accountBtn");
+
+                if (!clickedInsidePopup && !clickedAccountBtn && popup && !popup.classList.contains("hidden")) {
+                    popup.classList.add("hidden");
+                    overlay.classList.add("hidden");
+                }
+            });
+
+            // Auto-resize textarea
+            document.getElementById('topicInput').addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+
+            // Enter key for topic input
+            document.getElementById('topicInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    window.app.generateResourceGuide();
+                }
+            });
+
+            // Upgrade button in pricing modal
+            document.getElementById('upgradeToProBtn').addEventListener('click', function() {
+                window.app.authManager.handleUpgrade();
+            });
+        });
+    </script>
+    <script>
+  function updatePlaceholder() {
+    const input = document.getElementById("topicInput");
+    if (window.innerWidth < 640) {
+      input.placeholder = "Enter any topic (e.g., streetwear brand.)";
+    } else {
+      input.placeholder = "Enter any topic (e.g., streetwear brand, music producer...)";
+    }
+  }
+
+  // Run on page load
+  updatePlaceholder();
+
+  // Optional: Update on window resize
+  window.addEventListener("resize", updatePlaceholder);
+</script>
+
+</body>
+</html>
